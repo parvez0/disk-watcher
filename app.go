@@ -62,7 +62,7 @@ func main() {
 
 	switch *workerType {
 	case "disk-watcher":
-		logger.Info("starting disk watcher for dir ", *dirToMonitor)
+		logger.Info("starting disk watcher for dir -", *dirToMonitor, " and account - ", namespace)
 		c := cron.New()
 		c.AddFunc("* * * * *", func() {
 			usage := watchers.GetDirectoryUsage(*dirToMonitor)

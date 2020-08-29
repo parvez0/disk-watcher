@@ -36,7 +36,7 @@ func Greet() {
 	logger.Info("Starting the watcher...")
 }
 
-func getDiskSpaceExceedMessage(dirUsage *DfCMD, newValue string, message string) string {
+func getDiskSpaceExceedMessage(accountName string, dirUsage *DfCMD, newValue string, message string) string {
 	return fmt.Sprintf(
 		`The whatsapp disk for account <b>%s</b> has exceeded <b>%d%%</b> of the total disk %s %s
 	<table>
@@ -65,7 +65,7 @@ func getDiskSpaceExceedMessage(dirUsage *DfCMD, newValue string, message string)
 			<td>%s</td>
 		</tr>
 	</table>`,
-		os.Getenv("WHATSAPP_ACCOUNT"), dirUsage.UsePer, dirUsage.Size,
+		accountName, dirUsage.UsePer, dirUsage.Size,
 		message, dirUsage.MountedOn, dirUsage.Size, dirUsage.Used, dirUsage.UsePer, dirUsage.Available, newValue,
 	)
 }
@@ -149,20 +149,20 @@ func ProcessDiskUsageOutput(dirUsage *DfCMD, accountName string) {
 	switch {
 	case os.Getenv("GO_ENV") == "development":
 		logger.Printf("whatsapp usage has exceeds 70%% sending a mail to notify - %+v", dirUsage)
-		SendMail("whatsapp-disk", getDiskSpaceExceedMessage(dirUsage, "0", ""), nil)
+		SendMail("whatsapp-disk", getDiskSpaceExceedMessage(accountName, dirUsage, "0", ""), nil)
 	case dirUsage.UsePer < 70:
 		logger.Printf("disk check passed current metrics - %+v", dirUsage)
 	case dirUsage.UsePer > 70 && dirUsage.UsePer < 80:
 		logger.Printf("whatsapp usage has exceeds 70%% sending a mail to notify - %+v", dirUsage)
 		if cache[accountName] == 0 {
-			SendMail("whatsapp-disk", getDiskSpaceExceedMessage(dirUsage, "0", ""), nil)
+			SendMail("whatsapp-disk", getDiskSpaceExceedMessage(accountName, dirUsage, "0", ""), nil)
 			cache[accountName] = 1
 		}
 	case dirUsage.UsePer > 80:
 		logger.Warnf("whatsapp usage has exceeds 80%% increasing 100GB  - %+v", dirUsage)
 		newValue := IncreaseStorageSpace(accountName)
 		message := ", increasing the volume to " + newValue + "GB"
-		SendMail("whatsapp-disk", getDiskSpaceExceedMessage(dirUsage, newValue, message), nil)
+		SendMail("whatsapp-disk", getDiskSpaceExceedMessage(accountName, dirUsage, newValue, message), nil)
 		cache[accountName] = 0
 	}
 }
