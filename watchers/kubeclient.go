@@ -1,17 +1,21 @@
 package watchers
 
 import (
+	"bytes"
+	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/util/homedir"
 	"os"
 	"path/filepath"
 )
 
-func CreateClient() *kubernetes.Clientset {
+func CreateClient() (*kubernetes.Clientset, *rest.Config) {
 	var kubeconfig string
 	var config *rest.Config
 	var err error
@@ -33,11 +37,11 @@ func CreateClient() *kubernetes.Clientset {
 	if err != nil {
 		panic(err)
 	}
-	return clientset
+	return clientset, config
 }
 
 func GetPvcObject(namespace *string) v1.PersistentVolumeClaimInterface {
-	client := CreateClient()
+	client, _ := CreateClient()
 	return client.CoreV1().PersistentVolumeClaims(*namespace)
 }
 
@@ -59,4 +63,32 @@ func IncreaseWhatsappDiskSize(namespace string) int64 {
 	}
 	logger.Printf("pvc updated successfully - %+v", updatedPvc.Spec)
 	return newValue / (1024 * 1024 * 1024)
+}
+
+func NamespaceList() (*v12.NamespaceList, error) {
+	client, _ := CreateClient()
+	nsClient := client.CoreV1().Namespaces()
+	return nsClient.List(metav1.ListOptions{})
+}
+
+func ExecPod(namespace string) string {
+	client, config := CreateClient()
+	execClient := client.CoreV1().RESTClient().Post().Resource("pods").Name("master-0").Namespace(namespace).SubResource("exec")
+	exOpts := &v12.PodExecOptions{
+		Command: []string{"df", "-h"},
+		Stdout: true,
+	}
+	execClient.VersionedParams(exOpts, scheme.ParameterCodec)
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", execClient.URL())
+	if err != nil{
+		logger.Panic("failed to create an executor - ", err)
+	}
+	var stdout bytes.Buffer
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdout: &stdout,
+	})
+	if err != nil{
+		logger.Panic("failed to exec into the container - ", err)
+	}
+	return stdout.String()
 }

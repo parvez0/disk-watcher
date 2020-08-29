@@ -52,9 +52,8 @@ func ScaleDiskStorageHandler(writer http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	workerType := flag.String("worker", "master", "type of worker, defaults to master server")
+	workerType := flag.String("worker", "disk-watcher", "type of worker, defaults to master server")
 	dirToMonitor := flag.String("dir", "wamedia", "directory to monitor for storage consumption")
-	namespace := flag.String("account", "test-account", "namespace of the whatsapp account")
 
 	flag.Parse()
 	
@@ -62,11 +61,10 @@ func main() {
 
 	switch *workerType {
 	case "disk-watcher":
-		logger.Info("starting disk watcher for dir -", *dirToMonitor, " and account - ", namespace)
+		logger.Info("starting disk watcher for dir -", *dirToMonitor)
 		c := cron.New()
 		c.AddFunc("* * * * *", func() {
-			usage := watchers.GetDirectoryUsage(*dirToMonitor)
-			watchers.ProcessDiskUsageOutput(usage, *namespace)
+			watchers.CheckDiskStorage(dirToMonitor)
 		})
 		go c.Start()
 		logger.Printf("cron output - %+v", c.Entries())

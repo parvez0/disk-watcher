@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/parvez0/disk-watcher/responses"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -80,11 +80,9 @@ func trim(values []string) []string {
 	return formatted
 }
 
-func GetDirectoryUsage(diskToMonitor string) *DfCMD {
-	cmd := exec.Command("df", "-h")
-	o, err := cmd.Output()
-	CheckError(err, "failed to run sh df command")
-	lines := strings.Split(string(o), "\n")
+func GetDirectoryUsage(diskToMonitor string, namespace string) *DfCMD {
+	cmd := ExecPod(namespace)
+	lines := strings.Split(cmd, "\n")
 	var actualDisk string
 	for _, v := range lines {
 		if index := strings.Index(v, diskToMonitor); index != -1 {
@@ -160,9 +158,24 @@ func ProcessDiskUsageOutput(dirUsage *DfCMD, accountName string) {
 		}
 	case dirUsage.UsePer > 80:
 		logger.Warnf("whatsapp usage has exceeds 80%% increasing 100GB  - %+v", dirUsage)
-		newValue := IncreaseStorageSpace(accountName)
-		message := ", increasing the volume to " + newValue + "GB"
-		SendMail("whatsapp-disk", getDiskSpaceExceedMessage(accountName, dirUsage, newValue, message), nil)
+		newValue := IncreaseWhatsappDiskSize(accountName)
+		value := strconv.FormatInt(newValue, 10)
+		message := ", increasing the volume to " + value + "GB"
+		SendMail("whatsapp-disk", getDiskSpaceExceedMessage(accountName, dirUsage, value, message), nil)
 		cache[accountName] = 0
+	}
+}
+
+func CheckDiskStorage(dirToMonitor *string) {
+	namespaces, err := NamespaceList()
+	if err != nil{
+		logrus.Panic("failed to list namespaces -", err)
+	}
+	for _, ns := range namespaces.Items{
+		if strings.HasPrefix(ns.Name, "wa-"){
+			logrus.Infof("checking the storage of account - %+v", ns.Name)
+			usage := GetDirectoryUsage(*dirToMonitor, ns.Name)
+			ProcessDiskUsageOutput(usage, ns.Name)
+		}
 	}
 }
