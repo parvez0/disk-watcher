@@ -1,4 +1,4 @@
-module github.com/parvez0/whatsapp-disk-watcher
+module github.com/parvez0/disk-watcher
 
 go 1.14
 

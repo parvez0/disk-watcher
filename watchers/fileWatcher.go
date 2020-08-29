@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/parvez0/whatsapp-disk-watcher/responses"
+	"github.com/parvez0/disk-watcher/responses"
 	"io/ioutil"
 	"net/http"
 	"os"
