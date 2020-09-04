@@ -56,14 +56,14 @@ func main() {
 	dirToMonitor := flag.String("dir", "wamedia", "directory to monitor for storage consumption")
 
 	flag.Parse()
-	
+
 	logger := watchers.NewLogger()
 
 	switch *workerType {
 	case "disk-watcher":
 		logger.Info("starting disk watcher for dir -", *dirToMonitor)
 		c := cron.New()
-		c.AddFunc("* * * * *", func() {
+		c.AddFunc("*/5 * * * *", func() {
 			watchers.CheckDiskStorage(dirToMonitor)
 		})
 		go c.Start()

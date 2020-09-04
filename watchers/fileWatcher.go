@@ -81,6 +81,11 @@ func trim(values []string) []string {
 }
 
 func GetDirectoryUsage(diskToMonitor string, namespace string) *DfCMD {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Info("recovered from panic disk storage for account ", namespace)
+		}
+	}()
 	cmd := ExecPod(namespace)
 	lines := strings.Split(cmd, "\n")
 	var actualDisk string
@@ -116,14 +121,14 @@ func IncreaseStorageSpace(namespace string) string {
 		Namespace: namespace,
 	}
 	defer func() {
-		if e := recover(); e != nil{
+		if e := recover(); e != nil {
 			logger.Error("failed to increase storage size, recovering from panic - ", e)
 			return
 		}
 	}()
 	buf, _ := json.Marshal(reqBody)
-	resp, err := http.Post(watcherMasterUrl + "/increase-storage-size", "application/json", bytes.NewBuffer(buf))
-	if err != nil{
+	resp, err := http.Post(watcherMasterUrl+"/increase-storage-size", "application/json", bytes.NewBuffer(buf))
+	if err != nil {
 		logger.Error("failed to scale, got api error - ", err)
 		return "0"
 	}
@@ -131,11 +136,11 @@ func IncreaseStorageSpace(namespace string) string {
 	data := responses.GenericResponse{}
 	buf, err = ioutil.ReadAll(resp.Body)
 	err = json.Unmarshal(buf, &data)
-	if err != nil{
+	if err != nil {
 		logger.Error("failed to unmarshall the response - ", err)
 		return "0"
 	}
-	if data.Success == false{
+	if data.Success == false {
 		logger.Error("api returned failed response - ", data)
 		return "0"
 	}
@@ -168,14 +173,18 @@ func ProcessDiskUsageOutput(dirUsage *DfCMD, accountName string) {
 
 func CheckDiskStorage(dirToMonitor *string) {
 	namespaces, err := NamespaceList()
-	if err != nil{
+	if err != nil {
 		logrus.Panic("failed to list namespaces -", err)
 	}
-	for _, ns := range namespaces.Items{
-		if strings.HasPrefix(ns.Name, "wa-"){
+	for _, ns := range namespaces.Items {
+		if strings.HasPrefix(ns.Name, "wa-") {
 			logrus.Infof("checking the storage of account - %+v", ns.Name)
 			usage := GetDirectoryUsage(*dirToMonitor, ns.Name)
-			ProcessDiskUsageOutput(usage, ns.Name)
+			if usage != nil {
+				ProcessDiskUsageOutput(usage, ns.Name)
+			} else {
+				SendMail("whatsapp-disk", "Failed to check the available disk space for account "+ns.Namespace, nil)
+			}
 		}
 	}
 }
